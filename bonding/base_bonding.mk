@@ -5,6 +5,9 @@ ifndef PRJ_DEBUG
 PRJ_DEBUG = yes
 endif
 
+MK_DIR ?= $(PWD)
+
+
 PRJ_SRC = base_bonding.c 
 
-include ./std.mk
+include ${MK_DIR}/std.mk
