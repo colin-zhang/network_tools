@@ -50,7 +50,8 @@ dev_bond_if_exist(const char *ifn)
 }
 
 
-int dev_bond_if_up_down(const char *ethNum, int up)  
+int 
+dev_bond_if_up_down(const char *ethNum, int up)  
 {  
     struct ifreq ifr;  
     int sockfd;  
@@ -176,7 +177,8 @@ dev_bond_write_sysfs(const char* which, const char *ifn, const char *value)
 
 }
 
-static int dev_bond_bonding_slave(const char *ifn, const char *slava_ifn)
+static int 
+dev_bond_bonding_slave(const char *ifn, const char *slava_ifn)
 {
     char value[128] = {0};
 
@@ -205,7 +207,8 @@ dev_bond_config_bond(const char *ifn)
 }
 
 
-int main(int argc, char const *argv[])
+int 
+main(int argc, char const *argv[])
 {
     int ret;
     char *slotid;
