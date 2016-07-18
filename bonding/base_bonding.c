@@ -25,7 +25,7 @@ static char dev_bond_ip[16] = {0};
 
 static int miimon = 0;
 
-static int 
+static int
 dev_bond_if_exist(const char *ifn)
 {
     struct ifaddrs *ifaddr, *ifa;
@@ -50,82 +50,82 @@ dev_bond_if_exist(const char *ifn)
 }
 
 
-static int 
-dev_bond_if_up_down(const char *ethNum, int up)  
-{  
-    struct ifreq ifr;  
-    int sockfd;  
+static int
+dev_bond_if_up_down(const char *ethNum, int up)
+{
+    struct ifreq ifr;
+    int sockfd;
 
-    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {  
+    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
         DEBUG_PRINT("%s", strerror(errno));
-        return -1;    
-    }  
+        return -1;
+    }
 
-    strcpy(ifr.ifr_name, ethNum);  
-    if (ioctl(sockfd, SIOCGIFFLAGS, &ifr) < 0) {  
-        DEBUG_PRINT("%s", strerror(errno));  
-        close(sockfd);  
-        return -1;    
+    strcpy(ifr.ifr_name, ethNum);
+    if (ioctl(sockfd, SIOCGIFFLAGS, &ifr) < 0) {
+        DEBUG_PRINT("%s", strerror(errno));
+        close(sockfd);
+        return -1;
     }
 
     if (up) {
-        ifr.ifr_flags |= IFF_UP;  
+        ifr.ifr_flags |= IFF_UP;
     } else {
-        ifr.ifr_flags &= ~IFF_UP;  
+        ifr.ifr_flags &= ~IFF_UP;
     }
-    
-    if (ioctl(sockfd, SIOCSIFFLAGS, &ifr) < 0) {  
-        DEBUG_PRINT("%s", strerror(errno)); 
-        close(sockfd);  
-        return -1;    
-    }  
 
-    close(sockfd);  
-    return 1;  
-}  
+    if (ioctl(sockfd, SIOCSIFFLAGS, &ifr) < 0) {
+        DEBUG_PRINT("%s", strerror(errno));
+        close(sockfd);
+        return -1;
+    }
+
+    close(sockfd);
+    return 1;
+}
 
 
-static int 
-dev_bond_set_if_ip(const char *ifn, const char *ipaddr) 
-{  
-    int fd;  
-    struct sockaddr_in addr;  
-    struct ifreq ifr;  
+static int
+dev_bond_set_if_ip(const char *ifn, const char *ipaddr)
+{
+    int fd;
+    struct sockaddr_in addr;
+    struct ifreq ifr;
 
     if (ipaddr == NULL || ifn == NULL) {
-        return -1;  
+        return -1;
     }
 
-    if ((fd = socket(AF_INET, SOCK_DGRAM, 0 )) == -1) {  
-        DEBUG_PRINT("%s", strerror(errno)); 
-        return -1;  
-    }  
+    if ((fd = socket(AF_INET, SOCK_DGRAM, 0 )) == -1) {
+        DEBUG_PRINT("%s", strerror(errno));
+        return -1;
+    }
 
-    bzero(&addr, sizeof(addr));  
-    addr.sin_family = AF_INET;  
+    bzero(&addr, sizeof(addr));
+    addr.sin_family = AF_INET;
     inet_pton(AF_INET, ipaddr, &addr.sin_addr);
 
-    bzero(&ifr, sizeof(ifr));  
-    memcpy(&ifr.ifr_addr, &addr, sizeof(addr));  
-    strncpy(ifr.ifr_name, ifn, sizeof(ifr.ifr_name));     
+    bzero(&ifr, sizeof(ifr));
+    memcpy(&ifr.ifr_addr, &addr, sizeof(addr));
+    strncpy(ifr.ifr_name, ifn, sizeof(ifr.ifr_name));
 
-    if (ioctl(fd, SIOCSIFADDR, &ifr) < 0 ) {  
+    if (ioctl(fd, SIOCSIFADDR, &ifr) < 0 ) {
         DEBUG_PRINT("%s", strerror(errno));
-        close(fd); 
-        return -1;  
-    }  
+        close(fd);
+        return -1;
+    }
 
-    ifr.ifr_flags |= IFF_UP | IFF_RUNNING;  
+    ifr.ifr_flags |= IFF_UP | IFF_RUNNING;
 
-    if (ioctl(fd, SIOCSIFFLAGS, &ifr) < 0 ) {  
+    if (ioctl(fd, SIOCSIFFLAGS, &ifr) < 0 ) {
         DEBUG_PRINT("%s", strerror(errno));
-        close(fd); 
-        return -1;  
-    }  
+        close(fd);
+        return -1;
+    }
 
-    close(fd);  
-    return 0;  
-} 
+    close(fd);
+    return 0;
+}
 
 
 static char*
@@ -160,7 +160,7 @@ dev_bond_write_sysfs(const char* which, const char *ifn, const char *value)
     fd = open(path, O_WRONLY);
     if (fd < 0) {
         DEBUG_PRINT("path=%s, %s ", path, strerror(errno));
-        return -1; 
+        return -1;
     }
 
     ret = write(fd, value, strlen(value));
@@ -177,7 +177,7 @@ dev_bond_write_sysfs(const char* which, const char *ifn, const char *value)
 
 }
 
-static int 
+static int
 dev_bond_bonding_slave(const char *ifn, const char *slava_ifn, int if_add)
 {
     char value[128] = {0};
@@ -189,13 +189,13 @@ dev_bond_bonding_slave(const char *ifn, const char *slava_ifn, int if_add)
         } else {
             snprintf(value, sizeof(value), "-%s", slava_ifn);
         }
-        
+
         dev_bond_write_sysfs(BOND_SYSFS(slaves), ifn, value);
     }
     return 0;
 }
 
-static int 
+static int
 dev_bond_config_bond(const char *ifn, char **slave, const char *mode, int if_add)
 {
     int i = 0;
@@ -206,7 +206,7 @@ dev_bond_config_bond(const char *ifn, char **slave, const char *mode, int if_add
         snprintf(tmp, sizeof(tmp), "%d", miimon);
         dev_bond_write_sysfs(BOND_SYSFS(miimon), ifn, tmp);
     }
-    
+
     while (slave[i]) {
         dev_bond_bonding_slave(ifn, slave[i], if_add);
         i++;
@@ -216,10 +216,10 @@ dev_bond_config_bond(const char *ifn, char **slave, const char *mode, int if_add
 }
 
 
-void 
+void
 help(void)
 {
-    fprintf(stdout, 
+    fprintf(stdout,
             "Usage:"
             "\t-s, salve name\n"
             "\t-a, add slave\n"
@@ -247,9 +247,9 @@ int main(int argc, char *argv[])
     int dev_bond_slot_id = 0;
     int add_flag = -1;
 
-    while ((opt = getopt(argc, argv, "ads:m:")) != -1) 
+    while ((opt = getopt(argc, argv, "ads:m:")) != -1)
     {
-        switch (opt) 
+        switch (opt)
         {
             case 'a':
                 add_flag = 1;
@@ -266,7 +266,7 @@ int main(int argc, char *argv[])
             case 'i':
                 miimon = atoi(optarg);
                 break;
-            default: 
+            default:
                 help();
                 exit(0);
         }
@@ -276,7 +276,7 @@ int main(int argc, char *argv[])
         help();
         exit(0);
     }
-    
+
 
     slotid = getenv("slotid");
     if (slotid) {
@@ -291,9 +291,9 @@ int main(int argc, char *argv[])
         dev_bond_set_if_ip("bond0", dev_bond_get_bond_ip(dev_bond_slot_id));
     }
 
-    while (i) {
-        free(salves[i--]);
-    }
+    do {
+      free(salves[i--]);
+    } while(i);
 
     return 0;
 }
