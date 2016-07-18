@@ -16,16 +16,16 @@
 #include <linux/if_link.h>
 
 
-#define UWARE_DEFAULT_IP_DOMAIN "192.168.168.10"
+#define UWARE_DEFAULT_IP_DOMAIN "192.168.168.0"
 #define BOND_SYSFS(d) "/sys/class/net/%s/bonding/"#d
 
 #define DEBUG_PRINT(fmt, args...)  fprintf(stderr, "DBG:%s(%d)-%s: "fmt"\n", __FILE__, __LINE__, __FUNCTION__, ##args);
 
-static int dev_bond_slot_id = 0;
 static char dev_bond_ip[16] = {0};
 
+static int miimon = 0;
 
-int 
+static int 
 dev_bond_if_exist(const char *ifn)
 {
     struct ifaddrs *ifaddr, *ifa;
@@ -50,7 +50,7 @@ dev_bond_if_exist(const char *ifn)
 }
 
 
-int 
+static int 
 dev_bond_if_up_down(const char *ethNum, int up)  
 {  
     struct ifreq ifr;  
@@ -178,40 +178,106 @@ dev_bond_write_sysfs(const char* which, const char *ifn, const char *value)
 }
 
 static int 
-dev_bond_bonding_slave(const char *ifn, const char *slava_ifn)
+dev_bond_bonding_slave(const char *ifn, const char *slava_ifn, int if_add)
 {
     char value[128] = {0};
 
     if (dev_bond_if_exist(slava_ifn) == 0) {
         dev_bond_if_up_down(slava_ifn, 0);
-        snprintf(value, sizeof(value), "+%s", slava_ifn);
+        if (if_add) {
+            snprintf(value, sizeof(value), "+%s", slava_ifn);
+        } else {
+            snprintf(value, sizeof(value), "-%s", slava_ifn);
+        }
+        
         dev_bond_write_sysfs(BOND_SYSFS(slaves), ifn, value);
     }
     return 0;
 }
 
-// echo balance-alb > /sys/class/net/bond0/bonding/mode
-// echo active-backup >
-// echo 100 > /sys/class/net/bond0/bonding/miimon
-// echo +base1 > /sys/class/net/bond0/bonding/slaves
-// echo +base2 > /sys/class/net/bond0/bonding/slaves
-// cat /proc/net/bonding/bond0
 static int 
-dev_bond_config_bond(const char *ifn) 
+dev_bond_config_bond(const char *ifn, char **slave, const char *mode, int if_add)
 {
-    dev_bond_write_sysfs(BOND_SYSFS(mode), ifn, "balance-alb");
-    dev_bond_write_sysfs(BOND_SYSFS(miimon), ifn, "100");
-    dev_bond_bonding_slave(ifn, "base1");
-    dev_bond_bonding_slave(ifn, "base2");
+    int i = 0;
+    char tmp[16];
+
+    dev_bond_write_sysfs(BOND_SYSFS(mode), ifn, mode);
+    if (miimon != 0) {
+        snprintf(tmp, sizeof(tmp), "%d", miimon);
+        dev_bond_write_sysfs(BOND_SYSFS(miimon), ifn, tmp);
+    }
+    
+    while (slave[i]) {
+        dev_bond_bonding_slave(ifn, slave[i], if_add);
+        i++;
+    }
+
     return 0;
 }
 
 
-int 
-main(int argc, char const *argv[])
+void 
+help()
 {
-    int ret;
+    fprintf(stdout, 
+            "Usage:"
+            "\t-s, salve name\n"
+            "\t-a, add slave\n"
+            "\t-d, delete slave\n"
+            "\t-m, bonding mode\n"
+            "\t-i, miimon\n"
+            "\t\t-m 0, (balance-rr)Round-robin policy\n"
+            "\t\t-m 1, (active-backup)Active-backup policy\n"
+            "\t\t-m 2, (balance-xor)XOR policy\n"
+            "\t\t-m 3, broadcast\n"
+            "\t\t-m 4, (802.3ad)IEEE 802.3ad Dynamic link aggregation\n"
+            "\t\t-m 5, (balance-tlb)Adaptive transmit load balancing\n"
+            "\t\t-m 6, (balance-alb)Adaptive load balancing\n"
+            );
+    fflush(stdout);
+}
+
+
+int main(int argc, char *argv[])
+{
+    int ret = 0, opt = 0, i = 0;
     char *slotid;
+    char* salves[32] = {0};
+    char bonding_mode[32] = {0};
+    int dev_bond_slot_id = 0;
+    int add_flag = -1;
+
+    while ((opt = getopt(argc, argv, "ads:m:")) != -1) 
+    {
+        switch (opt) 
+        {
+            case 'a':
+                add_flag = 1;
+                break;
+            case 'd':
+                add_flag = 0;
+                break;
+            case 's':
+                salves[i] = strdup(optarg);
+                i++;
+                break;
+            case 'm':
+                strcpy(bonding_mode, optarg);
+                break;
+            case 'i':
+                miimon = atoi(optarg);
+                break;
+            default: 
+                help();
+                exit(0);
+        }
+    }
+
+    if ((bonding_mode[0] == 0 && add_flag == 1) || i == 0 || add_flag == -1) {
+        help();
+        exit(0);
+    }
+    
 
     slotid = getenv("slotid");
     if (slotid) {
@@ -219,10 +285,13 @@ main(int argc, char const *argv[])
     }
 
     if (dev_bond_if_exist("bond0") == 0) {
-        dev_bond_config_bond("bond0");
+        dev_bond_config_bond("bond0", salves, bonding_mode, add_flag);
         dev_bond_set_if_ip("bond0", dev_bond_get_bond_ip(dev_bond_slot_id));
-        return 0;
     }
 
-    return -1;
+    while (i) {
+        free(salves[i--]);
+    }
+
+    return 0;
 }
