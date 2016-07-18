@@ -217,7 +217,7 @@ dev_bond_config_bond(const char *ifn, char **slave, const char *mode, int if_add
 
 
 void 
-help()
+help(void)
 {
     fprintf(stdout, 
             "Usage:"
@@ -282,6 +282,9 @@ int main(int argc, char *argv[])
     slotid = getenv("slotid");
     if (slotid) {
         dev_bond_slot_id = atoi(slotid);
+        if (dev_bond_slot_id == 0) {
+            dev_bond_slot_id = 30;
+        }
     }
 
     if (dev_bond_if_exist("bond0") == 0) {
