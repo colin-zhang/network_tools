@@ -258,8 +258,7 @@ int main(int argc, char *argv[])
                 add_flag = 0;
                 break;
             case 's':
-                salves[i] = strdup(optarg);
-                i++;
+                salves[i++] = strdup(optarg);
                 break;
             case 'm':
                 strcpy(bonding_mode, optarg);
