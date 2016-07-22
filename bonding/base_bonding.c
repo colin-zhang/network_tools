@@ -52,7 +52,6 @@ dev_bond_if_exist(const char *ifn)
     return ret;
 }
 
-
 static int 
 dev_bond_if_up_down(const char *ethNum, int up)  
 {  
@@ -86,7 +85,6 @@ dev_bond_if_up_down(const char *ethNum, int up)
     close(sockfd);  
     return 1;  
 }  
-
 
 static int 
 dev_bond_set_if_ip(const char *ifn, const char *ipaddr) 
@@ -130,7 +128,6 @@ dev_bond_set_if_ip(const char *ifn, const char *ipaddr)
     return 0;  
 } 
 
-
 static char*
 dev_bond_get_bond_ip(int slot_id)
 {
@@ -139,7 +136,6 @@ dev_bond_get_bond_ip(int slot_id)
     snprintf(dev_bond_ip, sizeof(dev_bond_ip), "%d.%d.%d.%d", a, b, c, d + slot_id);
     return dev_bond_ip;
 }
-
 
 static int
 dev_bond_write_sysfs(const char* which, const char *ifn, const char *value)
@@ -204,7 +200,15 @@ dev_bond_config_bond(const char *ifn, char **slave, const char *mode, int if_add
     int i = 0;
     char tmp[16];
 
-    dev_bond_write_sysfs(BOND_SYSFS(mode), ifn, mode);
+    while (slave[i]) {
+        dev_bond_bonding_slave(ifn, slave[i], if_add);
+        i++;
+    }
+
+    if (mode != NULL) {
+        dev_bond_write_sysfs(BOND_SYSFS(mode), ifn, mode);
+    }
+    
     if (miimon != -1) {
         snprintf(tmp, sizeof(tmp), "%d", miimon);
         dev_bond_write_sysfs(BOND_SYSFS(miimon), ifn, tmp);
@@ -225,14 +229,8 @@ dev_bond_config_bond(const char *ifn, char **slave, const char *mode, int if_add
         dev_bond_write_sysfs(BOND_SYSFS(use_carrier), ifn, tmp);
     }
     
-    while (slave[i]) {
-        dev_bond_bonding_slave(ifn, slave[i], if_add);
-        i++;
-    }
-
     return 0;
 }
-
 
 void 
 help()
@@ -256,7 +254,6 @@ help()
             "\t\t-m 6, (balance-alb)Adaptive load balancing\n"
             "Example 1: base_bonding -b bond0 -a eth0 -a eth1 -i 100 -m 1\n"
             "Example 2: base_bonding -b eth0  --no_bondig\n"
-
             );
     fflush(stdout);
 }
