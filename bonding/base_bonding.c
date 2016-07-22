@@ -23,9 +23,12 @@
 
 static char dev_bond_ip[16] = {0};
 
-static int miimon = 0;
+static int miimon = -1;
+static int use_carrier = -1;
+static int updelay = -1;
+static int downdelay = -1;
 
-static int
+static int 
 dev_bond_if_exist(const char *ifn)
 {
     struct ifaddrs *ifaddr, *ifa;
@@ -50,82 +53,82 @@ dev_bond_if_exist(const char *ifn)
 }
 
 
-static int
-dev_bond_if_up_down(const char *ethNum, int up)
-{
-    struct ifreq ifr;
-    int sockfd;
+static int 
+dev_bond_if_up_down(const char *ethNum, int up)  
+{  
+    struct ifreq ifr;  
+    int sockfd;  
 
-    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {  
         DEBUG_PRINT("%s", strerror(errno));
-        return -1;
-    }
+        return -1;    
+    }  
 
-    strcpy(ifr.ifr_name, ethNum);
-    if (ioctl(sockfd, SIOCGIFFLAGS, &ifr) < 0) {
-        DEBUG_PRINT("%s", strerror(errno));
-        close(sockfd);
-        return -1;
+    strcpy(ifr.ifr_name, ethNum);  
+    if (ioctl(sockfd, SIOCGIFFLAGS, &ifr) < 0) {  
+        DEBUG_PRINT("%s", strerror(errno));  
+        close(sockfd);  
+        return -1;    
     }
 
     if (up) {
-        ifr.ifr_flags |= IFF_UP;
+        ifr.ifr_flags |= IFF_UP;  
     } else {
-        ifr.ifr_flags &= ~IFF_UP;
+        ifr.ifr_flags &= ~IFF_UP;  
     }
+    
+    if (ioctl(sockfd, SIOCSIFFLAGS, &ifr) < 0) {  
+        DEBUG_PRINT("%s", strerror(errno)); 
+        close(sockfd);  
+        return -1;    
+    }  
 
-    if (ioctl(sockfd, SIOCSIFFLAGS, &ifr) < 0) {
-        DEBUG_PRINT("%s", strerror(errno));
-        close(sockfd);
-        return -1;
-    }
-
-    close(sockfd);
-    return 1;
-}
+    close(sockfd);  
+    return 1;  
+}  
 
 
-static int
-dev_bond_set_if_ip(const char *ifn, const char *ipaddr)
-{
-    int fd;
-    struct sockaddr_in addr;
-    struct ifreq ifr;
+static int 
+dev_bond_set_if_ip(const char *ifn, const char *ipaddr) 
+{  
+    int fd;  
+    struct sockaddr_in addr;  
+    struct ifreq ifr;  
 
     if (ipaddr == NULL || ifn == NULL) {
-        return -1;
+        return -1;  
     }
 
-    if ((fd = socket(AF_INET, SOCK_DGRAM, 0 )) == -1) {
-        DEBUG_PRINT("%s", strerror(errno));
-        return -1;
-    }
+    if ((fd = socket(AF_INET, SOCK_DGRAM, 0 )) == -1) {  
+        DEBUG_PRINT("%s", strerror(errno)); 
+        return -1;  
+    }  
 
-    bzero(&addr, sizeof(addr));
-    addr.sin_family = AF_INET;
+    bzero(&addr, sizeof(addr));  
+    addr.sin_family = AF_INET;  
     inet_pton(AF_INET, ipaddr, &addr.sin_addr);
 
-    bzero(&ifr, sizeof(ifr));
-    memcpy(&ifr.ifr_addr, &addr, sizeof(addr));
-    strncpy(ifr.ifr_name, ifn, sizeof(ifr.ifr_name));
+    bzero(&ifr, sizeof(ifr));  
+    memcpy(&ifr.ifr_addr, &addr, sizeof(addr));  
+    strncpy(ifr.ifr_name, ifn, sizeof(ifr.ifr_name));     
 
-    if (ioctl(fd, SIOCSIFADDR, &ifr) < 0 ) {
+    if (ioctl(fd, SIOCSIFADDR, &ifr) < 0 ) {  
         DEBUG_PRINT("%s", strerror(errno));
-        close(fd);
-        return -1;
-    }
+        close(fd); 
+        return -1;  
+    }  
 
-    ifr.ifr_flags |= IFF_UP | IFF_RUNNING;
+    ifr.ifr_flags |= IFF_UP | IFF_RUNNING;  
 
-    if (ioctl(fd, SIOCSIFFLAGS, &ifr) < 0 ) {
+    if (ioctl(fd, SIOCSIFFLAGS, &ifr) < 0 ) {  
         DEBUG_PRINT("%s", strerror(errno));
-        close(fd);
-        return -1;
-    }
+        close(fd); 
+        return -1;  
+    }  
 
-    close(fd);
-    return 0;
-}
+    close(fd);  
+    return 0;  
+} 
 
 
 static char*
@@ -160,7 +163,7 @@ dev_bond_write_sysfs(const char* which, const char *ifn, const char *value)
     fd = open(path, O_WRONLY);
     if (fd < 0) {
         DEBUG_PRINT("path=%s, %s ", path, strerror(errno));
-        return -1;
+        return -1; 
     }
 
     ret = write(fd, value, strlen(value));
@@ -177,7 +180,7 @@ dev_bond_write_sysfs(const char* which, const char *ifn, const char *value)
 
 }
 
-static int
+static int 
 dev_bond_bonding_slave(const char *ifn, const char *slava_ifn, int if_add)
 {
     char value[128] = {0};
@@ -189,24 +192,39 @@ dev_bond_bonding_slave(const char *ifn, const char *slava_ifn, int if_add)
         } else {
             snprintf(value, sizeof(value), "-%s", slava_ifn);
         }
-
+        
         dev_bond_write_sysfs(BOND_SYSFS(slaves), ifn, value);
     }
     return 0;
 }
 
-static int
+static int 
 dev_bond_config_bond(const char *ifn, char **slave, const char *mode, int if_add)
 {
     int i = 0;
     char tmp[16];
 
     dev_bond_write_sysfs(BOND_SYSFS(mode), ifn, mode);
-    if (miimon != 0) {
+    if (miimon != -1) {
         snprintf(tmp, sizeof(tmp), "%d", miimon);
         dev_bond_write_sysfs(BOND_SYSFS(miimon), ifn, tmp);
     }
 
+    if (updelay != -1) {
+        snprintf(tmp, sizeof(tmp), "%d", updelay);
+        dev_bond_write_sysfs(BOND_SYSFS(updelay), ifn, tmp);
+    }
+
+    if (downdelay != -1) {
+        snprintf(tmp, sizeof(tmp), "%d", downdelay);
+        dev_bond_write_sysfs(BOND_SYSFS(downdelay), ifn, tmp);
+    }
+
+    if (use_carrier != -1) {
+        snprintf(tmp, sizeof(tmp), "%d", use_carrier);
+        dev_bond_write_sysfs(BOND_SYSFS(use_carrier), ifn, tmp);
+    }
+    
     while (slave[i]) {
         dev_bond_bonding_slave(ifn, slave[i], if_add);
         i++;
@@ -216,16 +234,19 @@ dev_bond_config_bond(const char *ifn, char **slave, const char *mode, int if_add
 }
 
 
-void
-help(void)
+void 
+help()
 {
-    fprintf(stdout,
+    fprintf(stdout, 
             "Usage:"
-            "\t-s, salve name\n"
-            "\t-a, add slave\n"
-            "\t-d, delete slave\n"
-            "\t-m, bonding mode\n"
-            "\t-i, miimon\n"
+            "\t-b xx, bond interface\n"
+            "\t-a xx, add slave\n"
+            "\t-r xx, remove slave\n"
+            "\t-i xx, miimon\n"
+            "\t-c xx, use_carrier\n"
+            "\t-u xx, updelay\n"
+            "\t-d xx, downdelay\n"
+            "\t-m xx, bonding mode\n"
             "\t\t-m 0, (balance-rr)Round-robin policy\n"
             "\t\t-m 1, (active-backup)Active-backup policy\n"
             "\t\t-m 2, (balance-xor)XOR policy\n"
@@ -233,6 +254,7 @@ help(void)
             "\t\t-m 4, (802.3ad)IEEE 802.3ad Dynamic link aggregation\n"
             "\t\t-m 5, (balance-tlb)Adaptive transmit load balancing\n"
             "\t\t-m 6, (balance-alb)Adaptive load balancing\n"
+            "Example: base_bonding -b bond0 -a eth0 -a eth1 -i 100 -m 1\n"
             );
     fflush(stdout);
 }
@@ -241,23 +263,26 @@ help(void)
 int main(int argc, char *argv[])
 {
     int ret = 0, opt = 0, i = 0;
-    char *slotid;
+    char *slotid = NULL;
+    char *base_if = "bond0";
     char* salves[32] = {0};
     char bonding_mode[32] = {0};
     int dev_bond_slot_id = 0;
     int add_flag = -1;
 
-    while ((opt = getopt(argc, argv, "ads:m:")) != -1)
+    while ((opt = getopt(argc, argv, "b:a:r:m:i:u:d:c:")) != -1) 
     {
-        switch (opt)
+        switch (opt) 
         {
+            case 'b':
+                base_if = argv[optind - 1];
+                break;
             case 'a':
                 add_flag = 1;
+                salves[i++] = strdup(optarg);
                 break;
-            case 'd':
+            case 'r':
                 add_flag = 0;
-                break;
-            case 's':
                 salves[i++] = strdup(optarg);
                 break;
             case 'm':
@@ -266,18 +291,27 @@ int main(int argc, char *argv[])
             case 'i':
                 miimon = atoi(optarg);
                 break;
-            default:
+            case 'c':
+                use_carrier = atoi(optarg);
+                break;
+            case 'u':
+                updelay = atoi(optarg);
+                break;
+            case 'd':
+                downdelay = atoi(optarg);
+                break;
+
+            default: 
                 help();
                 exit(0);
         }
     }
 
-    if ((bonding_mode[0] == 0 && add_flag == 1) || i == 0 || add_flag == -1) {
+    if ((bonding_mode[0] == 0 && add_flag == 1) || i == 0 || add_flag == -1 || base_if == NULL) {
         help();
         exit(0);
     }
-
-
+    
     slotid = getenv("slotid");
     if (slotid) {
         dev_bond_slot_id = atoi(slotid);
@@ -286,9 +320,9 @@ int main(int argc, char *argv[])
         }
     }
 
-    if (dev_bond_if_exist("bond0") == 0) {
-        dev_bond_config_bond("bond0", salves, bonding_mode, add_flag);
-        dev_bond_set_if_ip("bond0", dev_bond_get_bond_ip(dev_bond_slot_id));
+    if (dev_bond_if_exist(base_if) == 0) {
+        dev_bond_config_bond(base_if, salves, bonding_mode, add_flag);
+        dev_bond_set_if_ip(base_if, dev_bond_get_bond_ip(dev_bond_slot_id));
     }
 
     do {
