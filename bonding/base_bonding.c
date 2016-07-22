@@ -254,7 +254,9 @@ help()
             "\t\t-m 4, (802.3ad)IEEE 802.3ad Dynamic link aggregation\n"
             "\t\t-m 5, (balance-tlb)Adaptive transmit load balancing\n"
             "\t\t-m 6, (balance-alb)Adaptive load balancing\n"
-            "Example: base_bonding -b bond0 -a eth0 -a eth1 -i 100 -m 1\n"
+            "Example 1: base_bonding -b bond0 -a eth0 -a eth1 -i 100 -m 1\n"
+            "Example 2: base_bonding -b eth0  --no_bondig\n"
+
             );
     fflush(stdout);
 }
@@ -263,6 +265,7 @@ help()
 int main(int argc, char *argv[])
 {
     int ret = 0, opt = 0, i = 0;
+    int opt_index, no_bondig = 0;
     char *slotid = NULL;
     char *base_if = "bond0";
     char* salves[32] = {0};
@@ -270,12 +273,20 @@ int main(int argc, char *argv[])
     int dev_bond_slot_id = 0;
     int add_flag = -1;
 
-    while ((opt = getopt(argc, argv, "b:a:r:m:i:u:d:c:")) != -1) 
+    struct option long_opts[] = {
+        {"no_bonding", no_argument, 0, 0},
+    };
+
+    while ((opt = getopt_long(argc, argv, "b:a:r:m:i:u:d:c:", long_opts, &opt_index)) != -1) 
     {
         switch (opt) 
         {
+            case 0:
+                no_bondig += 2;
+                break;
             case 'b':
                 base_if = argv[optind - 1];
+                no_bondig += 1;
                 break;
             case 'a':
                 add_flag = 1;
@@ -307,11 +318,6 @@ int main(int argc, char *argv[])
         }
     }
 
-    if ((bonding_mode[0] == 0 && add_flag == 1) || i == 0 || add_flag == -1 || base_if == NULL) {
-        help();
-        exit(0);
-    }
-    
     slotid = getenv("slotid");
     if (slotid) {
         dev_bond_slot_id = atoi(slotid);
@@ -320,6 +326,19 @@ int main(int argc, char *argv[])
         }
     }
 
+    if (no_bondig == 3) {
+        dev_bond_set_if_ip(base_if, dev_bond_get_bond_ip(dev_bond_slot_id));
+        exit(0);
+    } else if (no_bondig == 2) {
+        fprintf(stdout, "no interface name\n");
+        exit(1);
+    }
+
+    if ((bonding_mode[0] == 0 && add_flag == 1) || i == 0 || add_flag == -1 || base_if == NULL) {
+        help();
+        exit(0);
+    }
+        
     if (dev_bond_if_exist(base_if) == 0) {
         dev_bond_config_bond(base_if, salves, bonding_mode, add_flag);
         dev_bond_set_if_ip(base_if, dev_bond_get_bond_ip(dev_bond_slot_id));
