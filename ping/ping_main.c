@@ -453,11 +453,11 @@ test(void)
         ping_addr_sort(ptr);
     }
 
-    for (i = 0; i < 8; i++) {
+    for (i = 0; i < 1; i++) {
         ping_send(ptr);
     }
 
-    while (fd_poll(ptr->sock_fd, 3000)) {
+    while (fd_poll(ptr->sock_fd, 1000)) {
         ping_recv(ptr);
     }
     ping_set_res(ptr);

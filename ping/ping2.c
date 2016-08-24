@@ -100,6 +100,10 @@ static int ping_socket_creat()
 {
     int skt = 0;
     skt = socket(AF_INET, SOCK_RAW, 1); //1 is icmp
+    if (skt < 0) {
+        Print("socket error , %d, %s\n", errno, strerror(errno));
+        exit(1);
+    }
     socket_set(skt);
     set_nonblocking(skt, 1);
     return skt;
@@ -125,6 +129,17 @@ struct v4_ping* ping_addr_init(int num)
         ptr = NULL;
     }
     return ptr;
+}
+
+
+void ping_addr_free(struct v4_ping *ptr)
+{
+    if (ptr != NULL) {
+        close(ptr->sock_fd);
+        if (ptr->ping_addr != NULL) {
+            free(ptr->ping_addr);
+        }
+    }
 }
 
 /* ascending order */
@@ -313,7 +328,9 @@ int ping_recv(struct v4_ping* ptr)
 
     frm_p = (struct sockaddr_in *)&from_addr;
     index = ping_addr_binary_search(ptr, &ip->ip_src);
-
+    if (index < 0) {
+        return -1;
+    }
     icmp = (struct icmp *)(recv_buf + ip_head_len);
     if (ntohs(icmp->icmp_id) == getpid() && 
         icmp->icmp_type == ICMP_ECHOREPLY &&
@@ -326,138 +343,123 @@ int ping_recv(struct v4_ping* ptr)
     return 0;
 }
 
-/*int 
-socket_set(struct v4_ping* ptr)
+int 
+fd_poll(int fd, int timeout_ms) 
 {
-    int size = 0;
-    int sfd = 0;
-    int ttl = 0;
+    struct pollfd fds[1];
+    int ret;
+    
+    fds[0].fd = fd;
+    fds[0].events = POLLIN | POLLPRI;
+    if ((ret = poll(fds, 1, timeout_ms)) < 0)
+        return -1;
+    if (ret)
+        return 1;
+    // time out 
+    return 0;
+}
+
+int 
+get_ip_address(const char *ifn, char *ip, int ip_len) 
+{
+    int fd;
+    struct sockaddr_in addr;
     struct ifreq ifr;
 
-    size = (1024) * 1024;
-    ttl = 10;
-
-    int deafult_buf_len = 0;
-    socklen_t optlen = sizeof(int); 
-    getsockopt(ptr->sock_fd, SOL_SOCKET, SO_SNDBUF, &deafult_buf_len, &optlen);
-    Print("deafult_buf_len = %d, optlen = %d \n", deafult_buf_len, optlen);
-   
-    if (setsockopt(ptr->sock_fd, SOL_SOCKET, SO_RCVBUF, &size, sizeof(size)) < 0) {
-        Print("setsockopt:%s\n", strerror(errno));
+    if (ip == NULL || ifn == NULL) {
+        return -1;
     }
 
-    if (setsockopt(ptr->sock_fd, SOL_SOCKET, SO_SNDBUF, &size, sizeof(size)) < 0) {
-        Print("setsockopt:%s\n", strerror(errno));
-    }
-
-    if (setsockopt(ptr->sock_fd, IPPROTO_IP, IP_TTL, (char *)&ttl, sizeof(ttl)) < 0) {
-        Print("setsockopt:%s\n", strerror(errno));
-    } 
-
-    deafult_buf_len = 0;
-    optlen = sizeof(int); 
-    getsockopt(ptr->sock_fd, SOL_SOCKET, SO_SNDBUF, &deafult_buf_len, &optlen);
-    Print("deafult_buf_len = %d, optlen = %d \n", deafult_buf_len, optlen);
-
-    if ((sfd = socket (AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0) {
-        Print("socket:%s\n", strerror(errno));
-        exit(EXIT_FAILURE);
+    fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (fd == -1) {
+        Print("%s , %s\n", "socket", strerror(errno));
+        return -1;
     }
 
     memset(&ifr, 0, sizeof(ifr));
-    snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), "%s", ptr->ifn);
-    if (ioctl(sfd, SIOCGIFINDEX, &ifr) < 0) {
-        Print("ioctl:%s\n", strerror(errno));
-        close(sfd);
-        return -1;
-    }
-    close(sfd);
+    strncpy(ifr.ifr_name, ifn, sizeof(ifr.ifr_name) - 1);
 
-    if (setsockopt(ptr->sock_fd, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof(ifr)) < 0) {
-        Print("%s\n", "setsockopt");
+    if (ioctl(fd, SIOCGIFADDR, &ifr) < 0 ) {
+        Print("%s , %s\n", "ioctl", strerror(errno));
+        close(fd);
+        return -1;
+    } else {
+        memcpy(&addr, &ifr.ifr_addr, sizeof(addr));
+        inet_ntop(AF_INET, &addr.sin_addr, ip, ip_len); 
     }
+    close(fd);
     return 0;
 }
-*/
-/*void 
+
+void
+ping_show_res(struct v4_ping* ptr)
+{
+    int i = 0;
+    int num_ok = 0, num_send_fail = 0, num_error = 0, num_no_recv = 0;
+    for (i = 0; i < ptr->offset; i++) {
+        //Print("ip = %s , res = %d\n", inet_ntoa(ptr->ping_addr[i].ia), ptr->ping_addr[i].res);
+        if (PING_OK == ptr->ping_addr[i].res) {
+            num_ok++;
+        } else if (PING_ERROR_OCCUR == ptr->ping_addr[i].res) {
+            num_error++;
+        } else if (PING_SEND_FAIL == ptr->ping_addr[i].res) {
+            num_send_fail++;
+        } else if (PING_NOT_RECEIVE == ptr->ping_addr[i].res) {
+            num_no_recv++;
+        }
+    }
+    Print("total=%d, ok=%d, error=%d, send_fail=%d, not_recv=%d\n", ptr->offset, num_ok, num_error, num_send_fail, num_no_recv);
+}
+
 test(void)
 {
     struct v4_ping* ptr;
     char ip[32] = {0};
     int a, b, c, d, i;
+    IA ia;
 
-    ptr = ping_addr_init("eth0", 256);
+    ptr = ping_addr_init(64);
     if (NULL == ptr) {
         Print("ping addr init failed\n");
         exit(1);
     }
-    socket_set(ptr);
-    get_ip_address(ptr->ifn, ip, sizeof(ip));
+
+    get_ip_address("eth0", ip, sizeof(ip));
     sscanf(ip, "%d.%d.%d.%d", &a, &b, &c, &d);
     for (i = 1; i < 255; i++) {
         if (i == d) continue;
         sprintf(ip, "%d.%d.%d.%d", a, b, c, i);
-        ping_addr_add(ptr, ip);
-        ping_addr_sort(ptr);
+        inet_pton(AF_INET, ip, &ia);
+        ping_addr_add(ptr, &ia);
     }
 
-    for (i = 0; i < 4; i++) {
-        ping_send(ptr);
-    }
-
-    while (fd_poll(ptr->sock_fd, 3000)) {
+    ping_send(ptr);
+    while (fd_poll(ptr->sock_fd, 1000)) {
         ping_recv(ptr);
     }
-    ping_set_res(ptr);
     ping_show_res(ptr);
-}
 
+    for (i = 1; i < 200; i++){
+        if (i == d) continue;
+        sprintf(ip, "%d.%d.%d.%d", a, b, c, i);
+        inet_pton(AF_INET, ip, &ia);
+        ping_addr_del(ptr, &ia);
+    }
+
+    ping_send(ptr);
+    while (fd_poll(ptr->sock_fd, 1000)) {
+        ping_recv(ptr);
+    }
+    ping_show_res(ptr);
+    inet_pton(AF_INET, "192.168.11.204", &ia);
+    int res = ping_add_get_resp(ptr, &ia);
+    Print("204, res = %d \n", res);
+
+    ping_addr_free(ptr);
+}
 
 int main(int argc, char *argv[])
 {
-    int opt;
-    struct v4_ping* ptr;
-    key_t key;
-    int shmid = 0;
-    char *shmptr = NULL;
-
-    while ((opt = getopt(argc, argv, "t")) != -1) {
-        switch(opt) {
-            case 't':
-                test();
-                exit(0);
-                break;
-        }
-    }
-    system("touch /tmp/ping_key");
-    if ((key = ftok("/tmp/ping_key", 1)) < 0) {
-        Print("ftok fail, %s \n", strerror(errno));
-        exit(1);
-    }
-
-    if ((shmid = shmget(key, 2048*8, IPC_CREAT | 0600)) < 0) {
-        Print("shmget error:%s\n", strerror(errno));
-        exit(-1);
-    }
-
-    Print("shmid = %d\n", shmid);
-
-    if ((shmptr = (char*)shmat(shmid, 0, 0)) == (void*)-1) {
-        Print("shmat error:%s\n", strerror(errno));
-        exit(-1);
-    }
-
-    shm_prt = (struct shared_mem *)shmptr;
-    
-    //daemon(0, 0);
-
-    return 0;
-}
-*/
-
-
-int main(int argc, char *argv[])
-{
-    /* code */
+    test();
     return 0;
 }
