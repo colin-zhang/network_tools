@@ -30,7 +30,7 @@ typedef struct in_addr      IA;
 
 
 #define Print(fmt, args...) { \
-            fprintf(stdout, ":%d:"fmt, __LINE__, ##args); \
+            fprintf(stdout, "%04d:"fmt, __LINE__, ##args); \
             fflush(stdout); \
         } \
 
@@ -226,7 +226,7 @@ int ping_addr_del(struct v4_ping* ptr, IA *target_ia)
     return 0;
 }
 
-int ping_add_get_resp(struct v4_ping* ptr, IA *target_ia)
+int ping_addr_get_resp(struct v4_ping* ptr, IA *target_ia)
 {
     int index = 0;
     index = ping_addr_binary_search(ptr, target_ia);
@@ -237,6 +237,14 @@ int ping_add_get_resp(struct v4_ping* ptr, IA *target_ia)
         return 1;
     } else {
         return 0;
+    }
+}
+
+int ping_clear_addr_resp(struct v4_ping* ptr)
+{
+    int i;
+    for (i = 0; i < ptr->offset; i++) {
+        ptr->ping_addr[i].res = 0;
     }
 }
 
@@ -327,7 +335,7 @@ int ping_recv(struct v4_ping* ptr)
     ip_len = ntohs(ip->ip_len);
 
     frm_p = (struct sockaddr_in *)&from_addr;
-    index = ping_addr_binary_search(ptr, &ip->ip_src);
+    index = ping_addr_binary_search(ptr, &frm_p->sin_addr);
     if (index < 0) {
         return -1;
     }
@@ -439,6 +447,8 @@ test(void)
     }
     ping_show_res(ptr);
 
+    ping_clear_addr_resp(ptr);
+
     for (i = 1; i < 200; i++){
         if (i == d) continue;
         sprintf(ip, "%d.%d.%d.%d", a, b, c, i);
@@ -452,7 +462,7 @@ test(void)
     }
     ping_show_res(ptr);
     inet_pton(AF_INET, "192.168.11.204", &ia);
-    int res = ping_add_get_resp(ptr, &ia);
+    int res = ping_addr_get_resp(ptr, &ia);
     Print("204, res = %d \n", res);
 
     ping_addr_free(ptr);
