@@ -5,3 +5,6 @@ ping1:ping_main.c
 
 ping2:ping2.c
 	gcc -o ping2 ping2.c
+
+clean:
+	rm -rf ping1 ping2 *.o

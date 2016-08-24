@@ -99,7 +99,7 @@ static int socket_set(int fd)
 static int ping_socket_creat()
 {
     int skt = 0;
-    skt = socket(AF_INET, SOCK_RAW, 1); //1 is icmp
+    skt = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP); //1 is icmp
     if (skt < 0) {
         Print("socket error , %d, %s\n", errno, strerror(errno));
         exit(1);
