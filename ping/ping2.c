@@ -268,7 +268,7 @@ int ping_addr_get_resp(struct v4_ping* ptr, IA *target_ia)
     int index = 0;
     index = ping_addr_binary_search(ptr, target_ia);
     if (index < 0) {
-        return 1;
+        return -1;
     }
     if (ptr->ping_addr[index].res == PING_OK) {
         return 1;
@@ -463,6 +463,7 @@ void test(const char *ifn)
     struct v4_ping* ptr;
     char ip[32] = {0};
     int a, b, c, d, i;
+    int ret;
     IA ia;
 
     ptr = ping_addr_init(ifn, 64);
@@ -471,7 +472,11 @@ void test(const char *ifn)
         exit(1);
     }
 
-    get_ip_address(ifn, ip, sizeof(ip));
+    ret = get_ip_address(ifn, ip, sizeof(ip));
+    if (ret < 0) {
+        Print("Can not get ip address\n");
+        exit(1);
+    }
     sscanf(ip, "%d.%d.%d.%d", &a, &b, &c, &d);
     for (i = 1; i < 255; i++) {
         if (i == d) continue;
