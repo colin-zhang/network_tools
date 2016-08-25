@@ -51,7 +51,7 @@ struct v4_ping_addr
 struct v4_ping
 {
     int sock_fd;
-    char send_buf[256];
+    char send_buf[ICMP_FULL_LEN];
     int num;
     int offset;
     struct v4_ping_addr *ping_addr;
@@ -139,6 +139,7 @@ void ping_addr_free(struct v4_ping *ptr)
         if (ptr->ping_addr != NULL) {
             free(ptr->ping_addr);
         }
+        free(ptr);
     }
 }
 
