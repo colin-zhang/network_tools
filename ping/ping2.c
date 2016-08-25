@@ -51,6 +51,7 @@ struct v4_ping_addr
 struct v4_ping
 {
     int sock_fd;
+    char ifn[16];
     char send_buf[ICMP_FULL_LEN];
     int num;
     int offset;
@@ -96,6 +97,36 @@ static int socket_set(int fd)
     return 0;
 }
 
+static int bind_socket_interface(int fd, const char *ifn)
+{
+    int sfd = 0;
+    struct ifreq ifr;
+
+    if (NULL == ifn) {
+        return 0;
+    }
+
+    if ((sfd = socket (AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0) {
+        Print("socket:%s\n", strerror(errno));
+        return -1;
+    }
+
+    memset(&ifr, 0, sizeof(ifr));
+    snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), "%s", ifn);
+    if (ioctl(sfd, SIOCGIFINDEX, &ifr) < 0) {
+        Print("ioctl:%s\n", strerror(errno));
+        close(sfd);
+        return -1;
+    }
+    close(sfd);
+
+    if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof(ifr)) < 0) {
+        Print("%s\n", "setsockopt");
+        return -1;
+    }
+    return 0;
+}
+
 static int ping_socket_creat()
 {
     int skt = 0;
@@ -109,7 +140,7 @@ static int ping_socket_creat()
     return skt;
 }
 
-struct v4_ping* ping_addr_init(int num)
+struct v4_ping* ping_addr_init(const char *ifn, int num)
 {
     struct v4_ping* ptr;
 
@@ -121,6 +152,10 @@ struct v4_ping* ping_addr_init(int num)
     ptr->num = num;
     ptr->offset = 0;
     ptr->sock_fd = ping_socket_creat();
+    if (NULL != ifn) {
+        bind_socket_interface(ptr->sock_fd, ifn);
+        snprintf(ptr->ifn, sizeof(ptr->ifn), "%s", ifn);
+    }
    
     ptr->ping_addr = calloc(num, sizeof(*ptr->ping_addr));
     if (ptr->ping_addr == NULL) {
@@ -420,20 +455,20 @@ ping_show_res(struct v4_ping* ptr)
     Print("total=%d, ok=%d, error=%d, send_fail=%d, not_recv=%d\n", ptr->offset, num_ok, num_error, num_send_fail, num_no_recv);
 }
 
-test(void)
+test(const char *ifn)
 {
     struct v4_ping* ptr;
     char ip[32] = {0};
     int a, b, c, d, i;
     IA ia;
 
-    ptr = ping_addr_init(64);
+    ptr = ping_addr_init(ifn, 64);
     if (NULL == ptr) {
         Print("ping addr init failed\n");
         exit(1);
     }
 
-    get_ip_address("eth0", ip, sizeof(ip));
+    get_ip_address(ifn, ip, sizeof(ip));
     sscanf(ip, "%d.%d.%d.%d", &a, &b, &c, &d);
     for (i = 1; i < 255; i++) {
         if (i == d) continue;
@@ -471,6 +506,6 @@ test(void)
 
 int main(int argc, char *argv[])
 {
-    test();
+    test(argv[1]);
     return 0;
 }
