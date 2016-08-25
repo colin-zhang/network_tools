@@ -304,7 +304,7 @@ static int calc_chsum(unsigned short *addr,int len)
     return answer;
 }
 
-static int pack(char *send_buf)
+static int icmp_pack(char *send_buf)
 {
     int packsize = 0;
     struct icmp *icmp = NULL;
@@ -326,7 +326,7 @@ static int send_packet(int sockfd, IA *iaddr, char *send_buf, int buf_len)
     memset(&saddr, 0, sizeof(saddr));
     memcpy(&saddr.sin_addr, iaddr, sizeof(*iaddr));
     memset(send_buf, 'a', buf_len);
-    size = pack(send_buf);
+    size = icmp_pack(send_buf);
     if (sendto(sockfd, send_buf, size, 0, (struct sockaddr *)&saddr, sizeof(struct sockaddr)) < 0) {
         Print("sendto failed, %d, %s \n", errno, strerror(errno));
         return -1;
@@ -509,6 +509,9 @@ void test(const char *ifn)
 
 int main(int argc, char *argv[])
 {
-    test(argv[1]);
+    char *ifn = "eth0";
+    if (argv[1] != NULL)
+        ifn = argv[1];
+    test(ifn);
     return 0;
 }
