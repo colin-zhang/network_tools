@@ -230,7 +230,8 @@ int ping_addr_double(struct v4_ping* ptr)
     memcpy(d, ptr->ping_addr, ptr->num*sizeof(*ptr->ping_addr));
     free(ptr->ping_addr);
     ptr->ping_addr = d;
-    ptr->num = ptr->num << 1;    
+    ptr->num = ptr->num << 1;  
+    return 0;  
 }
 
 int ping_addr_add(struct v4_ping* ptr, IA *target_ia)
@@ -276,7 +277,7 @@ int ping_addr_get_resp(struct v4_ping* ptr, IA *target_ia)
     }
 }
 
-int ping_clear_addr_resp(struct v4_ping* ptr)
+void ping_clear_addr_resp(struct v4_ping* ptr)
 {
     int i;
     for (i = 0; i < ptr->offset; i++) {
@@ -346,11 +347,13 @@ static int ping_send(struct v4_ping* ptr)
             //msleep(1000);
         }
     }
+    return 0;
 }
 
 int ping_recv(struct v4_ping* ptr)
 {
-    int addr_len, n;
+    socklen_t addr_len;
+    int n;
     struct ip *ip;
     struct icmp *icmp;
     struct sockaddr from_addr;
@@ -455,7 +458,7 @@ ping_show_res(struct v4_ping* ptr)
     Print("total=%d, ok=%d, error=%d, send_fail=%d, not_recv=%d\n", ptr->offset, num_ok, num_error, num_send_fail, num_no_recv);
 }
 
-test(const char *ifn)
+void test(const char *ifn)
 {
     struct v4_ping* ptr;
     char ip[32] = {0};
