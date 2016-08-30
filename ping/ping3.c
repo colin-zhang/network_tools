@@ -387,6 +387,10 @@ int ping_recv(struct v4_ping* ptr)
         return -1;
     }
     
+    Print("checksum = %d\n", icmp->icmp_cksum);
+    icmp->icmp_cksum = 0;
+    Print("checksum = %d\n", calc_chsum((unsigned short *)icmp, ip_len - ip_head_len));
+
     if (ntohs(icmp->icmp_id) == getpid() && 
         icmp->icmp_type == ICMP_ECHOREPLY &&
         icmp->icmp_code == 0) {
