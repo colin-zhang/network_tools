@@ -14,9 +14,9 @@
 #include <netinet/ether.h>
 #include <netinet/if_ether.h> 
 
-int getarp(const char *ifn, const char *ip) {
-
-    int s;
+int getarp(const char *ifn, const char *ip) 
+{
+    int s = 0, res = 0;
     struct arpreq arpreq;
     struct sockaddr_in *sin;
     unsigned char *eap;
@@ -34,41 +34,51 @@ int getarp(const char *ifn, const char *ip) {
         return -1;
     }
     if (ioctl(s, SIOCGARP, &arpreq) < 0) {
-         return -1;
+         res = -1;
+         goto ret;
     }
     if (arpreq.arp_flags & ATF_COM) {
-        return 1;
+        res = 1;
+        goto ret;
     }
+ret:
     close(s);
-    return 0;
+    return res;
 }
 
 int
-check_arp_by_ip(const char *ip)
+check_arp_by_ip(const char *ip, const char *ifn_cmp)
 {
     struct ifaddrs *ifaddr, *ifa;
     int family, s, n;
     char host[NI_MAXHOST];
-    static char ifn[64];
+    int len;
 
     if (getifaddrs(&ifaddr) == -1) {
         perror("getifaddrs");
         return -1;
     }
+
+    len = strlen(NULL == ifn_cmp ? "\0" : ifn_cmp);
+
     for (ifa = ifaddr, n = 0; ifa != NULL; ifa = ifa->ifa_next, n++) {
-        if (ifa->ifa_name == NULL) continue;
-        if (getarp(ifa->ifa_name, ip) > 0 ) {
-              freeifaddrs(ifaddr);
-              return 1;
-        }
-    } 
+        if (ifa->ifa_name != NULL) {
+            if (len > 0 && strlen(ifa->ifa_name) >= len) {
+                if (memcmp(ifn_cmp, ifa->ifa_name, len) != 0) continue;
+            }
+            if (getarp(ifa->ifa_name, ip) > 0 ) {
+                  freeifaddrs(ifaddr);
+                  return 1;
+            }
+        } 
+    }
     freeifaddrs(ifaddr);
     return 0;
 }
 
 int main(int argc, char *argv[])
 {
-    int ret = check_arp_by_ip(argv[1]);
+    int ret = check_arp_by_ip(argv[1], "");
     printf("ret = %d\n", ret);
     return 0;
 }
