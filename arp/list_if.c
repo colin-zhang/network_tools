@@ -13,6 +13,29 @@
 #include <linux/if_link.h>
 #include <netinet/ether.h>
 
+
+static int 
+add_arp(int fd, const char *ifn, const char *mac_addr, const char *ip_addr)
+{
+    struct arpreq req;
+    struct sockaddr_in *arp_pa = NULL;
+    int rv = 0;
+
+    memset(&req, 0, sizeof(req));
+    req.arp_ha.sa_family = 0;
+    memcpy(req.arp_ha.sa_data, mac_addr, 6);
+    req.arp_flags = ATF_PERM | ATF_COM;
+    snprintf(req.arp_dev, sizeof(req.arp_dev), "%s", ifn);
+    
+    arp_pa = (struct sockaddr_in *)&(req.arp_pa);
+    arp_pa->sin_family = AF_INET;
+    arp_pa->sin_port = 0;
+    inet_pton(AF_INET, ip_addr, &arp_pa->sin_addr);
+        
+    rv = ioctl(fd, SIOCSARP, &req);
+    return rv;
+}
+
 int 
 dev_list_if()
 {
