@@ -210,6 +210,7 @@ int get_total_mem(void)
     //TODO
     /*
     long long physical_mem_bytes = (long long) sysconf (_SC_PHYS_PAGES) * sysconf (_SC_PAGESIZE);
+    https://github.com/lyonel/lshw/blob/master/src/core/mem.cc
     
     */
 }
