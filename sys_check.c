@@ -202,9 +202,16 @@ int extract_cpu_brand(char* brand, size_t len)
 
 int get_total_mem(void)
 {
+    //not right
     struct sysinfo info;
     sysinfo(&info);
     return info.totalram / (1 << 30);
+    
+    //TODO
+    /*
+    long long physical_mem_bytes = (long long) sysconf (_SC_PHYS_PAGES) * sysconf (_SC_PAGESIZE);
+    
+    */
 }
 
 char* sys_info_str(void)
