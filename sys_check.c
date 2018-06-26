@@ -30,6 +30,7 @@ typedef struct PciId
     uint32_t type;
     uint32_t vendor_id;
     uint32_t device_id;
+    uint32_t subsystem_device_id;
     char description[1024];
 } PciId;
 
@@ -211,6 +212,27 @@ int get_total_mem(void)
     /*
     long long physical_mem_bytes = (long long) sysconf (_SC_PHYS_PAGES) * sysconf (_SC_PAGESIZE);
     https://github.com/lyonel/lshw/blob/master/src/core/mem.cc
+    
+    */
+    
+    /*
+    FILE* f = popen("dmidecode -t memory | grep Size", "r");
+    if (f == NULL) {
+        return -1;
+    }
+    char buf[1024] = {0};
+    size_t cap = 0;
+    while (fgets(buf, 1024, f)) {
+        int len = strlen(buf);
+        for (int i = 0; i < len; i++) {
+            if (isdigit(buf[i])) {
+                cap += atoi(&buf[i]);
+                break;
+            }
+        }
+    }
+    pclose(f);
+    return cap >> 10;
     
     */
 }
