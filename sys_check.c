@@ -30,7 +30,7 @@ typedef struct PciId
     uint32_t type;
     uint32_t vendor_id;
     uint32_t device_id;
-    uint32_t subsystem_device_id;
+    //uint32_t subsystem_device_id;
     char description[1024];
 } PciId;
 
